@@ -4,8 +4,16 @@ select nfs.cd_empresa canal,
        to_char(to_date(nfs.dt_emissao),'IW') semana,
        to_char(nfs.dt_emissao,'MM') mes,
        nfs.cd_condicao_pagamento pgt,
+       ((SELECT MAX(DT_VENCIMENTO)
+           FROM EMISSAO_DOCUMENTO_CTA_RECEBER DOC
+          WHERE DOC.CD_EMPRESA = NFS.CD_EMPRESA
+            AND DOC.CD_FILIAL = NFS.CD_FILIAL
+            AND DOC.CD_TIPO_DOCUMENTO = 'DUP'
+            AND DOC.NR_FATURA = NFS.NR_NOTA
+            AND DOC.SERIE_NFS = NFS.SERIE_NFS)  - NFS.DT_EMISSAO) DIAS_REC,           
        c.cd_uf uf,
-       e.cd_uf_ibge uf_ibge      
+       e.cd_uf_ibge uf_ibge,
+       decode(cfg.IN_CGCCPF,'F',0,1) tipo_pessoa        
 from nota_fiscal_saida_item nfsi,
      nota_fiscal_saida nfs,
      cliente_fornecedor_geral cfg,
@@ -31,8 +39,16 @@ select nfs.cd_empresa canal,
        to_char(to_date(nfs.dt_emissao),'IW') semana,
        to_char(nfs.dt_emissao,'MM') mes,
        nfs.cd_condicao_pagamento pgt,
+      ((SELECT MAX(DT_VENCIMENTO)
+          FROM EMISSAO_DOCUMENTO_CTA_RECEBER DOC
+         WHERE DOC.CD_EMPRESA = NFS.CD_EMPRESA
+           AND DOC.CD_FILIAL = NFS.CD_FILIAL
+           AND DOC.CD_TIPO_DOCUMENTO = 'DUP'
+           AND DOC.NR_FATURA = NFS.NR_NOTA
+           AND DOC.SERIE_NFS = NFS.SERIE_NFS)  - NFS.DT_EMISSAO) DIAS_REC, 
        c.cd_uf uf,
-       e.cd_uf_ibge uf_ibge      
+       e.cd_uf_ibge uf_ibge,   
+       decode(cfg.IN_CGCCPF,'F',0,1) tipo_pessoa   
 from nota_fiscal_saida_item nfsi,
      nota_fiscal_saida nfs,
      cliente_fornecedor_geral cfg,
@@ -51,6 +67,41 @@ and nfs.cd_cliente_fornecedor = cfg.cd_cliente_fornecedor
 and c.cd_cidade = cfg.cd_cidade
 and c.cd_uf = e.cd_uf
 and nfs.cd_condicao_pagamento is not null
+
+
+
+
+union all
+select nfs.cd_empresa,
+       cd_item,
+       sum(qt_retirada_pdr) qtde,
+       to_char(to_date(nfs.dt_emissao),'IW') semana,
+       to_char(nfs.dt_emissao,'MM') mes
+from nota_fiscal_saida_item nfsi,
+     nota_fiscal_saida nfs
+where nfs.dt_emissao between '01/01/2019' and  '31/12/2019'--trunc(sysdate)--between (to_date('08/04/2019') - 14) and (to_date('08/04/2019') + 60)
+and cd_item  in(28687,27912,26910)
+and nfsi.cd_empresa = nfs.cd_empresa
+and nfsi.cd_filial = nfs.cd_filial
+and nfsi.nr_nota = nfs.nr_nota
+and nfsi.serie_nfs = nfs.serie_nfs
+and nfs.cd_cliente_fornecedor not in (103057, 103723,103326,119824,120629,124540)
+and nfs.cd_empresa = 3
+group by nfs.cd_empresa,cd_item,to_char(to_date(nfs.dt_emissao),'IW'),to_char(nfs.dt_emissao,'MM')
+union all
+select 3 cd_empresa,
+       cd_item,
+       sum(qt_retirada) qtde,
+       to_char(to_date(l.dt_emissao),'IW') semana,
+       to_char(to_date(l.dt_emissao),'MM') mes 
+  from virtualven_ext l
+ where substr(cd_fiscal,1,4) = 5102 
+   and cd_item  in('028687','027912','026910')
+   and dt_emissao between '01/01/2019' and  '31/12/2019'
+   group by cd_item,to_char(to_date(l.dt_emissao),'IW'),to_char(to_date(l.dt_emissao),'MM')
+order by 4 asc, 1 asc;
+
+
 
 
 
